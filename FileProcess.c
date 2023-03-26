@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <pthread.h>
-#include <stdlib.h>
-
 // Practica Sistemas Arturo Fernandez - Juan Carlos Oniate - David Ortega
 
 
@@ -48,6 +44,65 @@ ENTREGA
 ========
 
 1. PDF MEMORIA (Portada,Indice,Apartados organizados,Explicacion,Esquema general, Plan de pruebas,Caputras de su funcionamiento,Codigo FUente)
-
-
 */
+
+#include <stdio.h> // Standard I/0
+#include <stdlib.h> // Standard Lib
+#include <pthread.h> // Libreria Hilos
+#include <unistd.h> // Libreria para Sleep
+#include <sys/syscall.h> // Gettid()
+
+// Funciones
+
+void *Poker()
+{
+    sleep(1);
+    printf ("PID Bet365: %d \n", gettid());
+}
+
+void *Blackjack()
+{
+    sleep(2);
+    printf ("PID Sportium: %d \n", gettid());
+}
+
+void *Laliga()
+{
+    sleep(3);
+    printf ("PID BWIN: %d\n", gettid());
+}
+
+void *Ruleta()
+{
+    sleep(4);
+    printf("Pid Betfair: %d\n", gettid());
+}
+
+int main()
+{
+    // Definimos los hilos
+
+    pthread_t bet365; // [Poker]
+    pthread_t sportium; // [BlackJack]
+    pthread_t bwin; // [LaLiga]
+    pthread_t betfair; // [Ruleta]
+
+
+    // Creamos los hilos
+
+    pthread_create(&bet365, NULL, Poker,  NULL);
+    pthread_create(&sportium, NULL, Blackjack, NULL);
+    pthread_create(&bwin, NULL, Laliga, NULL);
+    pthread_create(&betfair, NULL, Ruleta, NULL);
+
+    // Otros ...
+
+    printf("Testeo Programa V.02\n\n");
+    printf("Pid Main: %d\n", getpid());
+    sleep(5);
+    printf ("\nPrograma finalizado");
+
+
+    return 0; // Cerramos el programa
+    
+}
