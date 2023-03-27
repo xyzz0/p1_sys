@@ -2,7 +2,6 @@
 
 
 /*
-
 1- 3 Archivos (FileProcessor, Monitor , Config)
 2- Un programa para procesar ficheros en busca de patrones ludopaticos.
 3- Reportes de 4 casas (Bet365,Sportium,Bwin,Betfair)
@@ -46,46 +45,105 @@ ENTREGA
 1. PDF MEMORIA (Portada,Indice,Apartados organizados,Explicacion,Esquema general, Plan de pruebas,Caputras de su funcionamiento,Codigo FUente)
 */
 
+
+
+
+// Librerias 
+
 #include <stdio.h> // Standard I/0
 #include <stdlib.h> // Standard Lib
 #include <pthread.h> // Libreria Hilos
 #include <unistd.h> // Libreria para Sleep
 #include <sys/syscall.h> // Gettid()
 
+
+
 // Funciones
 
-void *Poker()
+void *Poker() // Funcion Poker (Bet365)
 {
     sleep(1);
-    printf ("PID Bet365: %d \n", gettid());
+    printf ("PID Bet365: %d\n", gettid());
 }
 
-void *Blackjack()
+
+void *Blackjack() // Funcion  Sportium (BlackJack) 
 {
     sleep(2);
-    printf ("PID Sportium: %d \n", gettid());
+    printf ("PID Sportium: %d\n", gettid());
 }
 
-void *Laliga()
+
+void *Laliga() // FUncion BWIN (LaLiga)
 {
     sleep(3);
     printf ("PID BWIN: %d\n", gettid());
 }
 
-void *Ruleta()
+
+void *Ruleta() // Funcion Betfair (Ruleta)
 {
     sleep(4);
-    printf("Pid Betfair: %d\n", gettid());
+    printf("PID Betfair: %d\n", gettid());
 }
+
+
 
 int main()
 {
+    printf("\nTesteo Programa V.02\n\n");
+    
+    // fp.conf
+
+    printf("\nAbriendo el archivo fp.conf y mostrando sus opciones:\n\n");
+
+    FILE *fpconf; // Declaracion por puntero de fp.conf
+    fpconf = fopen("fp.conf", "r"); // Abrimos en modo lectura fp.conf
+
+    if ( fpconf == NULL ) // Aseguranza de fopen()
+    {
+        printf ("No se pudo abrir el archivo");
+        return 1;
+    }
+        // PARAMETROS fp.conf
+
+        char PATH_FILES[30];
+        char INVENTORY_FILE[30];
+        char LOG_FILE[30];
+        int NUM_PROCESOS;
+        int SIMULATE_SLEEP_MAX;
+        int SIMULATE_SLEEP_MIN;
+
+        // Leemos los parametros de configuracion de fp.conf
+
+        fscanf(fpconf, "PATH_FILES=%29s\n", PATH_FILES);
+        fscanf(fpconf, "INVENTORY_FILE=%29s\n", INVENTORY_FILE);
+        fscanf(fpconf, "LOG_FILE=%29s\n", LOG_FILE);
+        fscanf(fpconf, "NUM_PROCESOS=%d\n", &NUM_PROCESOS);
+        fscanf(fpconf, "SIMULATE_SLEEP_MAX=%d\n", &SIMULATE_SLEEP_MAX);
+        fscanf(fpconf, "SIMULATE_SLEEP_MIN=%d\n", &SIMULATE_SLEEP_MIN);
+
+        // Otros ...
+
+        printf (" PATH_FILES = %s\n", PATH_FILES);
+        printf (" INVENTORY_FILE = %s\n", INVENTORY_FILE);
+        printf (" LOG_FILE = %s\n", LOG_FILE);
+        printf (" NUM_PROCESOS = %d\n", NUM_PROCESOS);
+        printf (" SIMULATE_SLEEP_MAX = %d\n", SIMULATE_SLEEP_MAX);
+        printf (" SIMULATE_SLEEP_MIN = %d\n",SIMULATE_SLEEP_MIN);
+        
+
+    fclose(fpconf); // Cerramos el archivo
+
+
+
     // Definimos los hilos
 
     pthread_t bet365; // [Poker]
     pthread_t sportium; // [BlackJack]
     pthread_t bwin; // [LaLiga]
     pthread_t betfair; // [Ruleta]
+
 
 
     // Creamos los hilos
@@ -95,12 +153,12 @@ int main()
     pthread_create(&bwin, NULL, Laliga, NULL);
     pthread_create(&betfair, NULL, Ruleta, NULL);
 
+
     // Otros ...
 
-    printf("Testeo Programa V.02\n\n");
-    printf("Pid Main: %d\n", getpid());
+    printf("\n\nPID Main: %d\n\n", getpid());
     sleep(5);
-    printf ("\nPrograma finalizado");
+    printf ("\n\nPrograma finalizado");
 
 
     return 0; // Cerramos el programa
