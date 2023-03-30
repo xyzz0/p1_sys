@@ -45,6 +45,13 @@ ENTREGA
 1. PDF MEMORIA (Portada,Indice,Apartados organizados,Explicacion,Esquema general, Plan de pruebas,Caputras de su funcionamiento,Codigo FUente)
 */
 
+/*
+    Dudas: 
+        - El fichero csv lo deberia crear el programa o deberia estar previamente creado?
+        - Debe ser FileProcess.C quien arranque Monitor, o tu te encargas de arrancarlo a la par que FP.c
+        - Cuando deberia cerrarse el archivo de configuracion? Afectaria a los valores guardados en los valores si se cierra?
+        - Los ficheros que envian las casas de apuestas contienen varios usuarios o solo el mismo con distintas acciones.
+*/
 
 
 
@@ -55,33 +62,35 @@ ENTREGA
 #include <pthread.h> // Libreria Hilos
 #include <unistd.h> // Libreria para Sleep
 #include <sys/syscall.h> // Gettid()
+#include <sys/stat.h> // Mkdir()
 
+#define MaxThreads 5 // Definimos el numero maximo de hilos
 
 
 // Funciones
 
-void *Poker() // Funcion Poker (Bet365)
+void *procesar_Bet365() // Funcion para procesar Poker (Bet365)
 {
     sleep(1);
     printf ("PID Bet365: %d\n", gettid());
 }
 
 
-void *Blackjack() // Funcion  Sportium (BlackJack) 
+void *procesar_Sportium() // Funcion para procesar BlackJack (Sportium) 
 {
     sleep(2);
     printf ("PID Sportium: %d\n", gettid());
 }
 
 
-void *Laliga() // FUncion BWIN (LaLiga)
+void *procesar_Bwin() // FUncion para procesar LaLiga (Bwin)
 {
     sleep(3);
     printf ("PID BWIN: %d\n", gettid());
 }
 
 
-void *Ruleta() // Funcion Betfair (Ruleta)
+void *procesar_Betfair() // Funcion para procesar Ruleta (Betfair)
 {
     sleep(4);
     printf("PID Betfair: %d\n", gettid());
@@ -91,7 +100,7 @@ void *Ruleta() // Funcion Betfair (Ruleta)
 
 int main()
 {
-    printf("\nTesteo Programa V.02\n\n");
+    printf("\nTesteo Programa V.03\n\n");
     
     // fp.conf
 
@@ -105,20 +114,21 @@ int main()
         printf ("No se pudo abrir el archivo");
         return 1;
     }
+
         // PARAMETROS fp.conf
 
-        char PATH_FILES[30];
-        char INVENTORY_FILE[30];
-        char LOG_FILE[30];
+        char PATH_FILES[250];
+        char INVENTORY_FILE[250];
+        char LOG_FILE[250];
         int NUM_PROCESOS;
         int SIMULATE_SLEEP_MAX;
         int SIMULATE_SLEEP_MIN;
 
         // Leemos los parametros de configuracion de fp.conf
 
-        fscanf(fpconf, "PATH_FILES=%29s\n", PATH_FILES);
-        fscanf(fpconf, "INVENTORY_FILE=%29s\n", INVENTORY_FILE);
-        fscanf(fpconf, "LOG_FILE=%29s\n", LOG_FILE);
+        fscanf(fpconf, "PATH_FILES=%249s\n", PATH_FILES);
+        fscanf(fpconf, "INVENTORY_FILE=%249s\n", INVENTORY_FILE);
+        fscanf(fpconf, "LOG_FILE=%249s\n", LOG_FILE);
         fscanf(fpconf, "NUM_PROCESOS=%d\n", &NUM_PROCESOS);
         fscanf(fpconf, "SIMULATE_SLEEP_MAX=%d\n", &SIMULATE_SLEEP_MAX);
         fscanf(fpconf, "SIMULATE_SLEEP_MIN=%d\n", &SIMULATE_SLEEP_MIN);
@@ -143,15 +153,26 @@ int main()
     pthread_t sportium; // [BlackJack]
     pthread_t bwin; // [LaLiga]
     pthread_t betfair; // [Ruleta]
+    pthread_t *hilos[4] = {&bet365, &sportium, &bwin, &betfair}; // Array de 4 componentes
 
+
+    // Definimos las funciones para los hilos
+
+    void *funcionesHilo[4] = {procesar_Bet365, procesar_Sportium, procesar_Bwin, procesar_Betfair}; // // Definimos las funciones para los hilos en un array de 4 componentes indicando las funciones de los hilos
 
 
     // Creamos los hilos
 
-    pthread_create(&bet365, NULL, Poker,  NULL);
-    pthread_create(&sportium, NULL, Blackjack, NULL);
-    pthread_create(&bwin, NULL, Laliga, NULL);
-    pthread_create(&betfair, NULL, Ruleta, NULL);
+    for (int i = 0; i < 4; i++) // Bucle para la creacion de hilos
+    {
+        int threadError = pthread_create(hilos[i], NULL, funcionesHilo[i], NULL); // // Variable por si la creacion del hilo falla
+
+        if (threadError != 0) // En caso de que falle la creacion
+        {
+            printf ("\nLa creacion del hilo %d, ha fallado.\n", i);
+            return 1;
+        }
+    }
 
 
     // Otros ...
