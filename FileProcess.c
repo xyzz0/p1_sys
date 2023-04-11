@@ -51,6 +51,7 @@ ENTREGA
         - Debe ser FileProcess.C quien arranque Monitor, o tu te encargas de arrancarlo a la par que FP.c
         - Cuando deberia cerrarse el archivo de configuracion? Afectaria a los valores guardados en los valores si se cierra?
         - Los ficheros que envian las casas de apuestas contienen varios usuarios o solo el mismo con distintas acciones.
+        - Que hace realmente el programa? Le llegan datos , los envia a una carpeta aparte depues de haber consolidado todos los datos en el csv?
 */
 
 
@@ -62,48 +63,33 @@ ENTREGA
 #include <pthread.h> // Libreria Hilos
 #include <unistd.h> // Libreria para Sleep
 #include <sys/syscall.h> // Gettid()
+#include <string.h> // Libreria de strings (Size measurement)
 #include <sys/stat.h> // Mkdir()
+#include <sys/inotify.h> // Escaneo en busca de archivos
+
 
 #define MaxThreads 5 // Definimos el numero maximo de hilos
-
+#define EVENT_SIZE (sizeof(struct inotify_event)) // INOTIFY
+#define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16)) // INOTIFY
 
 // Funciones
 
-void *procesar_Bet365() // Funcion para procesar Poker (Bet365)
+void* trabajo_Hilos()
 {
-    sleep(1);
-    printf ("PID Bet365: %d\n", gettid());
+    printf("\n Soy un hilo");
+    pthread_exit(NULL);
 }
 
 
-void *procesar_Sportium() // Funcion para procesar BlackJack (Sportium) 
-{
-    sleep(2);
-    printf ("PID Sportium: %d\n", gettid());
-}
-
-
-void *procesar_Bwin() // FUncion para procesar LaLiga (Bwin)
-{
-    sleep(3);
-    printf ("PID BWIN: %d\n", gettid());
-}
-
-
-void *procesar_Betfair() // Funcion para procesar Ruleta (Betfair)
-{
-    sleep(4);
-    printf("PID Betfair: %d\n", gettid());
-}
-
+// MAIN
 
 
 int main()
 {
-    printf("\nTesteo Programa V.03\n\n");
+    printf("\nTesteo Programa V.04\n\n");
     
-    // fp.conf
 
+    // fp.conf
     printf("\nAbriendo el archivo fp.conf y mostrando sus opciones:\n\n");
 
     FILE *fpconf; // Declaracion por puntero de fp.conf
@@ -116,7 +102,6 @@ int main()
     }
 
         // PARAMETROS fp.conf
-
         char PATH_FILES[250];
         char INVENTORY_FILE[250];
         char LOG_FILE[250];
@@ -125,7 +110,6 @@ int main()
         int SIMULATE_SLEEP_MIN;
 
         // Leemos los parametros de configuracion de fp.conf
-
         fscanf(fpconf, "PATH_FILES=%249s\n", PATH_FILES);
         fscanf(fpconf, "INVENTORY_FILE=%249s\n", INVENTORY_FILE);
         fscanf(fpconf, "LOG_FILE=%249s\n", LOG_FILE);
@@ -133,8 +117,7 @@ int main()
         fscanf(fpconf, "SIMULATE_SLEEP_MAX=%d\n", &SIMULATE_SLEEP_MAX);
         fscanf(fpconf, "SIMULATE_SLEEP_MIN=%d\n", &SIMULATE_SLEEP_MIN);
 
-        // Otros ...
-
+        // Imprimimos por pantalla los parametros de fp.conf
         printf (" PATH_FILES = %s\n", PATH_FILES);
         printf (" INVENTORY_FILE = %s\n", INVENTORY_FILE);
         printf (" LOG_FILE = %s\n", LOG_FILE);
@@ -142,43 +125,74 @@ int main()
         printf (" SIMULATE_SLEEP_MAX = %d\n", SIMULATE_SLEEP_MAX);
         printf (" SIMULATE_SLEEP_MIN = %d\n",SIMULATE_SLEEP_MIN);
         
-
     fclose(fpconf); // Cerramos el archivo
 
 
 
-    // Definimos los hilos
-
-    pthread_t bet365; // [Poker]
-    pthread_t sportium; // [BlackJack]
-    pthread_t bwin; // [LaLiga]
-    pthread_t betfair; // [Ruleta]
-    pthread_t *hilos[4] = {&bet365, &sportium, &bwin, &betfair}; // Array de 4 componentes
-
-
-    // Definimos las funciones para los hilos
-
-    void *funcionesHilo[4] = {procesar_Bet365, procesar_Sportium, procesar_Bwin, procesar_Betfair}; // // Definimos las funciones para los hilos en un array de 4 componentes indicando las funciones de los hilos
-
+    // Definimos el numero de hilos
+    pthread_t hilos[5];
 
     // Creamos los hilos
-
-    for (int i = 0; i < 4; i++) // Bucle para la creacion de hilos
+    for (int i = 0; i < 5; i++)
     {
-        int threadError = pthread_create(hilos[i], NULL, funcionesHilo[i], NULL); // // Variable por si la creacion del hilo falla
-
-        if (threadError != 0) // En caso de que falle la creacion
+        if (pthread_create(&hilos[i], NULL, trabajo_Hilos, NULL) != 0)
         {
-            printf ("\nLa creacion del hilo %d, ha fallado.\n", i);
-            return 1;
+            fprintf(stderr, "Error al crear el hilo numero %d\n", i);
         }
     }
 
 
-    // Otros ...
+    // Creacion del detector de nuevos archivos
 
-    printf("\n\nPID Main: %d\n\n", getpid());
     sleep(5);
+    printf("\n\n Monitoreando %s en busca de nuevos archivos \n", PATH_FILES);
+
+    int inotify_Instance = inotify_init(); // Se crea una instancia de inotify
+    if (inotify_Instance < 0) // Bucle por si falla la creacion de la instancia
+    {
+        sleep(3);
+        printf("Error al crear instancia de Inotify");
+        return 1;
+    }
+
+    int vigilante_inotify = inotify_add_watch(inotify_Instance, PATH_FILES, IN_MOVED_TO);
+    if (vigilante_inotify < 0 ) // En la linea anterior agregamos un vigilante de nuevos y archivos movidos.
+    {
+        sleep(3);
+        printf("Error al crear el vigilante de inotify");
+        return 1;
+    }
+
+    char buffer[EVENT_BUF_LEN]; // Creacion de un buffer para los eventos
+
+    while(1) // Bucle para gestionar los archivos
+    {
+        int length = read(inotify_Instance, buffer, EVENT_BUF_LEN);
+        if (length < 0) // Leemos el buffer y controlamos errores.
+        {
+            printf("No se ha podido leer");
+            return 1;
+        }
+    
+        int t = 0;
+        while (t < length)
+        {
+            struct inotify_event *event = (struct inotify_event *) &buffer[t];
+            if (event->len)
+            {
+                if (event->mask & IN_MOVED_TO)
+                {
+                    printf(" A new file was added: %s/%s\n", PATH_FILES, event->name);
+                }
+            }
+
+            t += EVENT_SIZE + event->len;
+        } 
+    }
+
+
+    // Otros ...
+    printf("\n\nPID Main: %d\n\n", getpid());
     printf ("\n\nPrograma finalizado");
 
 
