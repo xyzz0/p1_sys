@@ -60,9 +60,9 @@ ENTREGA
 #include <string.h> // Libreria de strings (Size measurement)
 #include <sys/stat.h> // Mkdir()
 #include <sys/inotify.h> // Escaneo en busca de archivos
+#include <dirent.h> //libreria para trabajar con directorios
 
 
-#define MaxThreads 5 // Definimos el numero maximo de hilos
 #define EVENT_SIZE (sizeof(struct inotify_event)) // INOTIFY
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16)) // INOTIFY
 
@@ -82,6 +82,8 @@ int main()
 {
     printf("\nTesteo Programa V.04\n\n");
     
+    //registro.log
+    FILE *log; //declaracion por puntero de registro.log
 
     // fp.conf
     printf("\nAbriendo el archivo fp.conf y mostrando sus opciones:\n\n");
@@ -124,7 +126,7 @@ int main()
 
 
     // Definimos el numero de hilos
-    pthread_t hilos[5];
+    pthread_t hilos[NUM_PROCESOS];
 
     // Creamos los hilos
     for (int i = 0; i < 5; i++)
@@ -138,7 +140,6 @@ int main()
 
     // Creacion del detector de nuevos archivos
 
-    sleep(5);
     printf("\n\n Monitoreando %s en busca de nuevos archivos \n", PATH_FILES);
 
     int inotify_Instance = inotify_init(); // Se crea una instancia de inotify
@@ -159,6 +160,19 @@ int main()
 
     char buffer[EVENT_BUF_LEN]; // Creacion de un buffer para los eventos
 
+    FILE *consolidado;
+    
+    char directorio[] = "."; // Directorio actual
+    DIR *dir;
+
+    struct dirent *entrada;
+
+    // Subcadenas a buscar
+    char subcadena[] = "CA"; 
+
+    //fichero origen
+    FILE *fichero_origen;
+
     while(1) // Bucle para gestionar los archivos
     {
         int length = read(inotify_Instance, buffer, EVENT_BUF_LEN);
@@ -174,9 +188,67 @@ int main()
             struct inotify_event *event = (struct inotify_event *) &buffer[t];
             if (event->len)
             {
-                if (event->mask & IN_MOVED_TO)
+                if (event->mask & IN_MOVED_TO) //condicional en caso de que se agregue un archivo
                 {
                     printf(" A new file was added: %s/%s\n", PATH_FILES, event->name);
+                    log = fopen("registro.log", "a");
+                    fprintf(log, "A new file was added: %s/%s\n", PATH_FILES, event->name);
+                    fclose(log);
+
+                    // Abrir directorio
+                    dir = opendir(directorio);
+
+                    if (dir == NULL) {
+                        printf("No se pudo abrir el directorio.\n");
+                        return 1;
+                    }
+
+                    // Leer contenido del directorio
+                    printf("Contenido del directorio:\n");
+                    
+                    while ((entrada = readdir(dir)) != NULL) {
+                        // Ignorar archivos ocultos y directorios
+                        if (entrada->d_name[0] == '.') {
+                            continue;
+                        }
+
+                        // Imprimir nombre de archivo
+                        printf("%s\n", entrada->d_name);
+
+                        // Buscar subcadena en nombre de archivo
+                        if (strstr(entrada->d_name, subcadena) != NULL) {
+                            printf("La subcadena '%s' fue encontrada en el archivo '%s'.\n", subcadena, entrada->d_name);
+
+                            fichero_origen = fopen(entrada->d_name, "r");
+                            consolidado = fopen("Consolidado_Ejemplo_v01.csv", "a");
+                            
+                            // Verifica si los archivos se abrieron correctamente
+                            if (fichero_origen == NULL || consolidado == NULL) {
+                                printf("Error al abrir los archivos.\n");
+                                return 1;
+                            }
+                            
+                            char linea[150]; //para almacenar cada linea del fichero y pasarlo al consolidado
+
+                            // Lee linea por linea del archivo entrante y escribe en el consolidado
+                            while (fgets(linea, 150, fichero_origen) != NULL) {
+                                fputs(linea, consolidado);
+                            }
+
+                            // cerrar fichero
+                            fclose(fichero_origen);
+                            fclose(consolidado);
+                            
+                            if (remove(entrada->d_name) == 0) {
+                                printf("Archivo eliminado correctamente.");
+                            } else {
+                                printf("Error al eliminar el archivo.");
+                            }
+                        }
+                    }
+
+                    // Cerrar directorio
+                    closedir(dir);
                 }
             }
 
