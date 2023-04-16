@@ -54,6 +54,7 @@ ENTREGA
 
 #include <stdio.h> // Standard I/0
 #include <stdlib.h> // Standard Lib
+#include <signal.h> // Kill process
 #include <pthread.h> // Libreria Hilos
 #include <unistd.h> // Libreria para Sleep
 #include <sys/syscall.h> // Gettid()
@@ -61,18 +62,47 @@ ENTREGA
 #include <sys/stat.h> // Mkdir()
 #include <sys/inotify.h> // Escaneo en busca de archivos
 #include <dirent.h> //libreria para trabajar con directorios
+#include <semaphore.h> //semaforos
 
 
 #define EVENT_SIZE (sizeof(struct inotify_event)) // INOTIFY
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16)) // INOTIFY
 
+
+//variables para hilos y main
+FILE *consolidado;
+    
+char directorio[] = "."; // Directorio actual
+DIR *dir;
+
+struct dirent *entrada;
+
+// Subcadenas a buscar
+char subcadena[] = "CA"; 
+
+//fichero origen
+FILE *fichero_origen;
+
+int rand_sleep=0;
+
+int contador=0;
+
+// semaforos
+sem_t sem1;
+sem_t sem2;
+sem_t sem3;
+sem_t sem4;
+sem_t sem5;
+
+pthread_t h1;
+pthread_t h2;
+pthread_t h3;
+pthread_t h4;
+pthread_t h5;
+
 // Funciones
 
-void* trabajo_Hilos()
-{
-    printf("\n Soy un hilo");
-    pthread_exit(NULL);
-}
+void* trabajo_Hilos();
 
 
 // MAIN
@@ -80,6 +110,13 @@ void* trabajo_Hilos()
 
 int main()
 {
+    // valores de los semaforos
+    sem_init(&sem1, 0, 0);
+    sem_init(&sem2, 0, 0);
+    sem_init(&sem3, 0, 0);
+    sem_init(&sem4, 0, 0);
+    sem_init(&sem5, 0, 0);
+
     printf("\nTesteo Programa V.04\n\n");
     
     //registro.log
@@ -123,13 +160,11 @@ int main()
         
     fclose(fpconf); // Cerramos el archivo
 
-
-
     // Definimos el numero de hilos
     pthread_t hilos[NUM_PROCESOS];
 
     // Creamos los hilos
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < NUM_PROCESOS; i++)
     {
         if (pthread_create(&hilos[i], NULL, trabajo_Hilos, NULL) != 0)
         {
@@ -137,11 +172,10 @@ int main()
         }
     }
 
-
     // Creacion del detector de nuevos archivos
 
     printf("\n\n Monitoreando %s en busca de nuevos archivos \n", PATH_FILES);
-
+    
     int inotify_Instance = inotify_init(); // Se crea una instancia de inotify
     if (inotify_Instance < 0) // Bucle por si falla la creacion de la instancia
     {
@@ -159,19 +193,6 @@ int main()
     }
 
     char buffer[EVENT_BUF_LEN]; // Creacion de un buffer para los eventos
-
-    FILE *consolidado;
-    
-    char directorio[] = "."; // Directorio actual
-    DIR *dir;
-
-    struct dirent *entrada;
-
-    // Subcadenas a buscar
-    char subcadena[] = "CA"; 
-
-    //fichero origen
-    FILE *fichero_origen;
 
     while(1) // Bucle para gestionar los archivos
     {
@@ -203,52 +224,120 @@ int main()
                         return 1;
                     }
 
+
                     // Leer contenido del directorio
-                    printf("Contenido del directorio:\n");
-                    
                     while ((entrada = readdir(dir)) != NULL) {
                         // Ignorar archivos ocultos y directorios
                         if (entrada->d_name[0] == '.') {
                             continue;
                         }
 
-                        // Imprimir nombre de archivo
-                        printf("%s\n", entrada->d_name);
+                        
 
-                        // Buscar subcadena en nombre de archivo
-                        if (strstr(entrada->d_name, subcadena) != NULL) {
-                            printf("La subcadena '%s' fue encontrada en el archivo '%s'.\n", subcadena, entrada->d_name);
+                        // Buscar el nombre de la casa y ejecuta su hilo en nombre de archivo
+                        if (strstr(entrada->d_name, "CA001") != NULL) {
 
-                            fichero_origen = fopen(entrada->d_name, "r");
-                            consolidado = fopen("Consolidado_Ejemplo_v01.csv", "a");
-                            
-                            // Verifica si los archivos se abrieron correctamente
-                            if (fichero_origen == NULL || consolidado == NULL) {
-                                printf("Error al abrir los archivos.\n");
-                                return 1;
-                            }
-                            
-                            char linea[150]; //para almacenar cada linea del fichero y pasarlo al consolidado
+                            // Imprimir nombre de archivo
+                            printf("\n%s\n", entrada->d_name);
 
-                            // Lee linea por linea del archivo entrante y escribe en el consolidado
-                            while (fgets(linea, 150, fichero_origen) != NULL) {
-                                fputs(linea, consolidado);
-                            }
+                            printf("La subcadena 'CA001' fue encontrada en el archivo '%s'.\n\n", entrada->d_name);
 
-                            // cerrar fichero
-                            fclose(fichero_origen);
-                            fclose(consolidado);
-                            
-                            if (remove(entrada->d_name) == 0) {
-                                printf("Archivo eliminado correctamente.");
-                            } else {
-                                printf("Error al eliminar el archivo.");
-                            }
+                            //numero aleatorio para sleep
+                            srand (time(NULL));
+                            int dif=SIMULATE_SLEEP_MAX-SIMULATE_SLEEP_MIN;
+
+                            rand_sleep = rand()%(dif+1)+SIMULATE_SLEEP_MIN;
+                            printf("\nRAND = %d\n", rand_sleep);
+
+                            h1 = hilos[1];
+                                    
+                            sem_post(&sem1);
                         }
+
+                        // Buscar el nombre de la casa y ejecuta su hilo en nombre de archivo
+                        if (strstr(entrada->d_name, "CA002") != NULL) {
+
+                            // Imprimir nombre de archivo
+                            printf("\n%s\n", entrada->d_name);
+
+                            printf("La subcadena 'CA002' fue encontrada en el archivo '%s'.\n\n", entrada->d_name);
+
+                            //numero aleatorio para sleep
+                            srand (time(NULL));
+                            int dif=SIMULATE_SLEEP_MAX-SIMULATE_SLEEP_MIN;
+
+                            rand_sleep = rand()%(dif+1)+SIMULATE_SLEEP_MIN;
+                            printf("\nRAND = %d\n", rand_sleep);
+
+                            h2 = hilos[2];
+
+                            sem_post(&sem2);
+                        }
+                        
+                        // Buscar el nombre de la casa y ejecuta su hilo en nombre de archivo
+                        if (strstr(entrada->d_name, "CA003") != NULL) {
+
+                            // Imprimir nombre de archivo
+                            printf("\n%s\n", entrada->d_name);
+
+                            printf("La subcadena 'CA003' fue encontrada en el archivo '%s'.\n\n", entrada->d_name);
+
+                            //numero aleatorio para sleep
+                            srand (time(NULL));
+                            int dif=SIMULATE_SLEEP_MAX-SIMULATE_SLEEP_MIN;
+
+                            rand_sleep = rand()%(dif+1)+SIMULATE_SLEEP_MIN;
+                            printf("\nRAND = %d\n", rand_sleep);
+
+                            h3 = hilos[3];
+                                    
+                            sem_post(&sem3);
+                        }
+                        
+                        // Buscar el nombre de la casa y ejecuta su hilo en nombre de archivo
+                        if (strstr(entrada->d_name, "CA004") != NULL) {
+
+                            // Imprimir nombre de archivo
+                            printf("\n%s\n", entrada->d_name);
+
+                            printf("La subcadena 'CA004' fue encontrada en el archivo '%s'.\n\n", entrada->d_name);
+
+                            //numero aleatorio para sleep
+                            srand (time(NULL));
+                            int dif=SIMULATE_SLEEP_MAX-SIMULATE_SLEEP_MIN;
+
+                            rand_sleep = rand()%(dif+1)+SIMULATE_SLEEP_MIN;
+                            printf("\nRAND = %d\n", rand_sleep);
+
+                            h4 = hilos[4];
+
+                            sem_post(&sem4);
+                        }
+                        
+                        // Buscar el nombre de la casa y ejecuta su hilo en nombre de archivo
+                        if (strstr(entrada->d_name, "CA") != NULL && contador==4) {
+
+                            // Imprimir nombre de archivo
+                            printf("\n%s\n", entrada->d_name);
+
+                            printf("La subcadena 'CA005' fue encontrada en el archivo '%s'.\n\n", entrada->d_name);
+
+                            //numero aleatorio para sleep
+                            srand (time(NULL));
+                            int dif=SIMULATE_SLEEP_MAX-SIMULATE_SLEEP_MIN;
+
+                            rand_sleep = rand()%(dif+1)+SIMULATE_SLEEP_MIN;
+                            printf("\nRAND = %d\n", rand_sleep);
+
+                            h5 = hilos[5];
+
+                            sem_post(&sem5);
+                        }
+                        
                     }
 
-                    // Cerrar directorio
-                    closedir(dir);
+                        // Cerrar directorio
+                        closedir(dir);
                 }
             }
 
@@ -264,4 +353,79 @@ int main()
 
     return 0; // Cerramos el programa
     
+}
+
+void* trabajo_Hilos(void *arg)
+{
+
+    if(pthread_equal(h1, pthread_self())) {
+        sem_wait(&sem1);
+        printf("\nACCEDE HILO 1\n");
+    }
+    else if(pthread_equal(h2, pthread_self())) {
+        sem_wait(&sem2);
+        printf("\nACCEDE HILO 2\n");
+    }
+    else if(pthread_equal(h3, pthread_self())) {
+        sem_wait(&sem3);
+        printf("\nACCEDE HILO 3\n");
+    }
+    else if(pthread_equal(h4, pthread_self())) {
+        sem_wait(&sem4);
+        printf("\nACCEDE HILO 4\n");
+    }
+    else if(pthread_equal(h5, pthread_self())) {
+        sem_wait(&sem5);
+        printf("\nACCEDE HILO 5\n");
+    }
+    contador++;
+
+    printf("\n%s esperara un total de %d segundos\n\n", entrada->d_name, rand_sleep);
+
+    sleep(rand_sleep);
+
+    fichero_origen = fopen(entrada->d_name, "r");
+    consolidado = fopen("Consolidado_Ejemplo_v01.csv", "a");
+                            
+    // Verifica si los archivos se abrieron correctamente
+    if (fichero_origen == NULL || consolidado == NULL) {
+        printf("Error al abrir los archivos.\n");
+    }
+                            
+    char linea[150]; //para almacenar cada linea del fichero y pasarlo al consolidado
+
+    // Lee linea por linea del archivo entrante y escribe en el consolidado
+    while (fgets(linea, 150, fichero_origen) != NULL) {
+        fputs(linea, consolidado);
+    }
+
+    // cerrar fichero
+    fclose(fichero_origen);
+    fclose(consolidado);
+                            
+    if (remove(entrada->d_name) == 0) {
+        printf("\nArchivo %s eliminado correctamente\n\n", entrada->d_name);
+    } else {
+        printf("Error al eliminar el archivo.");
+    }
+
+    contador--;
+
+    if(pthread_equal(h1, pthread_self())) {
+        sem_wait(&sem1);
+    }
+    else if(pthread_equal(h2, pthread_self())) {
+        sem_wait(&sem2);
+    }
+    else if(pthread_equal(h3, pthread_self())) {
+        sem_wait(&sem3);
+    }
+    else if(pthread_equal(h4, pthread_self())) {
+        sem_wait(&sem4);
+    }
+    else if(pthread_equal(h5, pthread_self())) {
+        sem_wait(&sem5);
+    }
+
+    return NULL;
 }
